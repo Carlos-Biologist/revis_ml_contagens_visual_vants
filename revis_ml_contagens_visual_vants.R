@@ -105,6 +105,19 @@ overdisp_fun(m_nb)
 
 #------------------------------------------------------------------------------#
 
+m_nb2 <- glmmTMB(
+  Contagem ~ Espécie + Monitoramento + (1 | Data),
+  family = nbinom2,
+  data = dados
+)
+
+anova(m_nb, m_nb2)
+AIC(m_nb, m_nb2)
+
+summary(m_nb2)
+
+#------------------------------------------------------------------------------#
+
 # 10. Visualizar as distribuições com boxplots e histogramas
 
 boxplot(Contagem ~ Monitoramento, data = dados)
@@ -135,3 +148,87 @@ ggplot(emm_df, aes(x = Espécie, y = response, fill = Monitoramento)) +
        fill = "Monitoramento",
        title = "Médias ajustadas do modelo Binomial Negativa") +
   theme_minimal()
+
+#------------------------------------------------------------------------------#
+
+dados_of <- subset(dados, Espécie == "o_flavescens")
+dados_aa <- subset(dados, Espécie == "a_australis")
+
+#------------------------------------------------------------------------------#
+
+library(tidyr)
+
+dados_of_wide <- pivot_wider(
+  dados_of,
+  id_cols = Data,
+  names_from = Monitoramento,
+  values_from = Contagem
+)
+
+wilcox.test(
+  dados_of_wide$visual,
+  dados_of_wide$vant,
+  paired = TRUE
+)
+
+#------------------------------------------------------------------------------#
+
+dados_aa_wide <- pivot_wider(
+  dados_aa,
+  id_cols = Data,
+  names_from = Monitoramento,
+  values_from = Contagem
+)
+
+wilcox.test(
+  dados_aa_wide$visual,
+  dados_aa_wide$vant,
+  paired = TRUE
+)
+
+#------------------------------------------------------------------------------#
+
+library(ggplot2)
+
+# Exemplo para a_australis
+dados_aa <- subset(dados, Espécie == "a_australis")
+
+ggplot(dados_aa,
+       aes(x = Monitoramento,
+           y = Contagem,
+           group = Data)) +
+  geom_line(alpha = 0.6) +
+  geom_point(size = 3) +
+  theme_classic() +
+  labs(x = "Monitoramento",
+       y = "Contagem",
+       title = "Arctocephalus australis")
+
+#------------------------------------------------------------------------------#
+
+ggplot(dados_of,
+       aes(x = Monitoramento,
+           y = Contagem,
+           group = Data)) +
+  geom_line(alpha = 0.6) +
+  geom_point(size = 3) +
+  theme_classic() +
+  labs(x = "Monitoramento",
+       y = "Contagem",
+       title = "Otaria flavescens")
+
+#------------------------------------------------------------------------------#
+
+dados_wide <- pivot_wider(
+  dados,
+  id_cols = c(Data, Espécie),
+  names_from = Monitoramento,
+  values_from = Contagem
+)
+
+wilcox.test(
+  dados_wide$visual,
+  dados_wide$vant,
+  paired = TRUE,
+  exact = FALSE
+)
