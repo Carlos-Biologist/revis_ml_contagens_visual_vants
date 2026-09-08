@@ -1579,7 +1579,7 @@ dados_simul$especie <- as.factor(dados_simul$especie)
 dados_simul$Mês <- as.numeric(dados_simul$Mês)
 dados_simul$turno <- as.factor(dados_simul$turno)
 dados_simul$revis <- as.factor(dados_simul$revis)
-dados_simul$simult <- as.factor(dados_simul$simult)
+dados_simul$simult <- as.numeric(dados_simul$simult)
 
 str(dados_simul)
 
@@ -1621,10 +1621,608 @@ m_nb_interacao_simul <- glmmTMB(abundancia ~ revis*especie + revis*Mês + revis*
 
 summary(m_nb_interacao_simul)
 
-residuos_int <- residuals(m_nb_interacao, type = "pearson")
+residuos_int_simul <- residuals(m_nb_interacao_simul, type = "pearson")
 
-shapiro.test(residuos_int)
+shapiro.test(residuos_int_simul)
 
-hist(residuos_int)
+hist(residuos_int_simul)
 
-#------------------------------------------------------------------------------#
+################################################################################
+################################################################################
+
+# ============================================================
+# GRÁFICO DE COLUNAS EMPILHADAS
+# Otaria flavescens
+#
+# Cada "simult" = uma coluna
+# IL = preto
+# ML = cinza
+#
+# Eixo X:
+# May/Daytime/2025
+# Jun/Daytime/2025
+# Jul/Daytime/2025
+# Aug/Daytime/2025
+# Aug/Nighttime/2025
+# ...
+#
+# O número no topo = total IL + ML
+# ============================================================
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+
+# ============================================================
+# FILTRAR Otaria flavescens
+# ============================================================
+
+dados_flavescens <- dados_simul %>%
+  filter(
+    especie == "o_flavescens",
+    revis %in% c("IL", "ML"),
+    !is.na(simult),
+    !is.na(abundancia)
+  ) %>%
+  mutate(
+    simult = as.integer(simult)
+  )
+
+# ============================================================
+# CRIAR NOMES DOS MESES, TURNOS E ANO
+# ============================================================
+
+dados_flavescens <- dados_flavescens %>%
+  mutate(
+    
+    mes_nome = case_when(
+      Mês == 1  ~ "Jan",
+      Mês == 2  ~ "Feb",
+      Mês == 3  ~ "Mar",
+      Mês == 4  ~ "Apr",
+      Mês == 5  ~ "May",
+      Mês == 6  ~ "Jun",
+      Mês == 7  ~ "Jul",
+      Mês == 8  ~ "Aug",
+      Mês == 9  ~ "Sep",
+      Mês == 10 ~ "Oct",
+      Mês == 11 ~ "Nov",
+      Mês == 12 ~ "Dec",
+      TRUE ~ NA_character_
+    ),
+    
+    turno_nome = case_when(
+      turno %in% c("Diurno", "diurno", "Daytime") ~ "Daytime",
+      turno %in% c("Noturno", "noturno", "Nighttime") ~ "Nighttime",
+      TRUE ~ as.character(turno)
+    ),
+    
+    ano_nome = as.character(ano),
+    
+    rotulo_simult = paste(
+      mes_nome,
+      turno_nome,
+      ano_nome,
+      sep = "/"
+    )
+  )
+
+# ============================================================
+# CRIAR TABELA DE RÓTULOS
+# ============================================================
+
+ordem_simult <- dados_flavescens %>%
+  arrange(simult) %>%
+  group_by(simult) %>%
+  summarise(
+    rotulo_simult = first(rotulo_simult),
+    .groups = "drop"
+  ) %>%
+  arrange(simult)
+
+
+# ============================================================
+# AGREGAR ABUNDÂNCIA POR SIMULT E REVIS
+# ============================================================
+
+dados_flavescens <- dados_flavescens %>%
+  group_by(simult, revis) %>%
+  summarise(
+    abundancia = sum(abundancia, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    revis = factor(
+      revis,
+      levels = c("IL", "ML")
+    )
+  ) %>%
+  arrange(simult, revis)
+
+
+# ============================================================
+# CALCULAR TOTAL IL + ML
+# ============================================================
+
+totais_simult <- dados_flavescens %>%
+  group_by(simult) %>%
+  summarise(
+    total = sum(abundancia, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# ============================================================
+# GRÁFICO
+#
+# IMPORTANTE:
+# O eixo X usa SIMULT como fator.
+# Os rótulos são fornecidos separadamente pelo scale_x_discrete().
+# ============================================================
+
+grafico_flavescens <- ggplot(
+  dados_flavescens,
+  aes(
+    x = factor(simult),
+    y = abundancia,
+    fill = revis
+  )
+) +
+  
+  # ----------------------------------------------------------
+# COLUNAS EMPILHADAS
+# ----------------------------------------------------------
+
+geom_col(
+  width = 0.75,
+  color = "black",
+  linewidth = 0.4
+) +
+  
+  # ----------------------------------------------------------
+# TOTAL NO TOPO DE CADA COLUNA
+# ----------------------------------------------------------
+
+geom_text(
+  data = totais_simult,
+  aes(
+    x = factor(simult),
+    y = total,
+    label = total
+  ),
+  inherit.aes = FALSE,
+  vjust = -0.4,
+  size = 4,
+  family = "Times New Roman"
+) +
+  
+  # ----------------------------------------------------------
+# RÓTULOS DO EIXO X
+# ----------------------------------------------------------
+
+scale_x_discrete(
+  breaks = ordem_simult$simult,
+  labels = ordem_simult$rotulo_simult
+) +
+  
+  # ----------------------------------------------------------
+# CORES
+# ----------------------------------------------------------
+
+scale_fill_manual(
+  values = c(
+    "IL" = "black",
+    "ML" = "grey60"
+  ),
+  labels = c(
+    "IL" = "Ilha dos Lobos",
+    "ML" = "Molhe Leste"
+  )
+) +
+  
+  # ----------------------------------------------------------
+# EIXO Y
+# ----------------------------------------------------------
+
+scale_y_continuous(
+  expand = expansion(
+    mult = c(0, 0.10)
+  )
+) +
+  
+  # ----------------------------------------------------------
+# RÓTULOS DOS EIXOS E TÍTULO
+# ----------------------------------------------------------
+
+labs(
+  title = "Otaria flavescens",
+  x = NULL,
+  y = "Number of individuals",
+  fill = "Wildlife Refuge"
+) +
+  
+  # ----------------------------------------------------------
+# TEMA
+# ----------------------------------------------------------
+
+theme_classic(
+  base_family = "Times New Roman",
+  base_size = 12
+) +
+  
+  theme(
+    
+    # --------------------------------------------------------
+    # NOME DA ESPÉCIE
+    # --------------------------------------------------------
+    
+    plot.title = element_text(
+      family = "Times New Roman",
+      size = 14,
+      face = "bold.italic",
+      hjust = 0.5,
+      margin = margin(
+        b = 12
+      )
+    ),
+    
+    # --------------------------------------------------------
+    # EIXO X
+    # --------------------------------------------------------
+    
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1,
+      size = 11,
+      family = "Times New Roman"
+    ),
+    
+    # --------------------------------------------------------
+    # EIXO Y
+    # --------------------------------------------------------
+    
+    axis.text.y = element_text(
+      size = 12,
+      family = "Times New Roman"
+    ),
+    
+    axis.title.y = element_text(
+      size = 12,
+      family = "Times New Roman",
+      face = "bold"
+    ),
+    
+    # --------------------------------------------------------
+    # LEGENDA
+    # --------------------------------------------------------
+    
+    legend.title = element_text(
+      size = 12,
+      family = "Times New Roman"
+    ),
+    
+    legend.text = element_text(
+      size = 11,
+      family = "Times New Roman"
+    )
+  )
+
+
+# ============================================================
+# MOSTRAR GRÁFICO
+# ============================================================
+
+grafico_flavescens
+
+
+# ============================================================
+# SALVAR
+# ============================================================
+
+ggsave(
+  filename = "Otaria_flavescens_simult_empilhado.png",
+  plot = grafico_flavescens,
+  width = 14,
+  height = 7,
+  dpi = 300
+)
+
+# ============================================================
+# GRÁFICO DE COLUNAS EMPILHADAS
+# Arctocephalus australis
+#
+# Cada "simult" = uma coluna
+# IL = preto
+# ML = cinza
+#
+# Eixo X:
+# May/Daytime/2025
+# Jun/Daytime/2025
+# Jul/Daytime/2025
+# Aug/Daytime/2025
+# Aug/Nighttime/2025
+# ...
+#
+# O número no topo = total IL + ML
+# ============================================================
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+
+
+# ============================================================
+# FILTRAR Arctocephalus australis
+# ============================================================
+
+dados_australis <- dados_simul %>%
+  filter(
+    especie == "a_australis",
+    revis %in% c("IL", "ML"),
+    !is.na(simult),
+    !is.na(abundancia)
+  ) %>%
+  mutate(
+    simult = as.integer(simult)
+  )
+
+
+# ============================================================
+# CRIAR NOMES DOS MESES, TURNOS E ANO
+# ============================================================
+
+dados_australis <- dados_australis %>%
+  mutate(
+    
+    mes_nome = case_when(
+      Mês == 1  ~ "Jan",
+      Mês == 2  ~ "Feb",
+      Mês == 3  ~ "Mar",
+      Mês == 4  ~ "Apr",
+      Mês == 5  ~ "May",
+      Mês == 6  ~ "Jun",
+      Mês == 7  ~ "Jul",
+      Mês == 8  ~ "Aug",
+      Mês == 9  ~ "Sep",
+      Mês == 10 ~ "Oct",
+      Mês == 11 ~ "Nov",
+      Mês == 12 ~ "Dec",
+      TRUE ~ NA_character_
+    ),
+    
+    turno_nome = case_when(
+      turno %in% c("Diurno", "diurno", "Daytime") ~ "Daytime",
+      turno %in% c("Noturno", "noturno", "Nighttime") ~ "Nighttime",
+      TRUE ~ as.character(turno)
+    ),
+    
+    ano_nome = as.character(ano),
+    
+    rotulo_simult = paste(
+      mes_nome,
+      turno_nome,
+      ano_nome,
+      sep = "/"
+    )
+  )
+
+
+# ============================================================
+# CRIAR TABELA DE RÓTULOS
+# ============================================================
+
+ordem_simult <- dados_australis %>%
+  arrange(simult) %>%
+  group_by(simult) %>%
+  summarise(
+    rotulo_simult = first(rotulo_simult),
+    .groups = "drop"
+  ) %>%
+  arrange(simult)
+
+
+# ============================================================
+# AGREGAR ABUNDÂNCIA POR SIMULT E REVIS
+# ============================================================
+
+dados_australis <- dados_australis %>%
+  group_by(simult, revis) %>%
+  summarise(
+    abundancia = sum(abundancia, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    revis = factor(
+      revis,
+      levels = c("IL", "ML")
+    )
+  ) %>%
+  arrange(simult, revis)
+
+
+# ============================================================
+# CALCULAR TOTAL IL + ML
+# ============================================================
+
+totais_simult <- dados_australis %>%
+  group_by(simult) %>%
+  summarise(
+    total = sum(abundancia, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+# ============================================================
+# GRÁFICO
+#
+# O eixo X usa SIMULT como fator.
+# Os rótulos são fornecidos separadamente pelo scale_x_discrete().
+# ============================================================
+
+grafico_australis <- ggplot(
+  dados_australis,
+  aes(
+    x = factor(simult),
+    y = abundancia,
+    fill = revis
+  )
+) +
+  
+  # ----------------------------------------------------------
+# COLUNAS EMPILHADAS
+# ----------------------------------------------------------
+
+geom_col(
+  width = 0.75,
+  color = "black",
+  linewidth = 0.4
+) +
+  
+  # ----------------------------------------------------------
+# TOTAL NO TOPO DE CADA COLUNA
+# ----------------------------------------------------------
+
+geom_text(
+  data = totais_simult,
+  aes(
+    x = factor(simult),
+    y = total,
+    label = total
+  ),
+  inherit.aes = FALSE,
+  vjust = -0.4,
+  size = 4,
+  family = "Times New Roman"
+) +
+  
+  # ----------------------------------------------------------
+# RÓTULOS DO EIXO X
+# ----------------------------------------------------------
+
+scale_x_discrete(
+  breaks = ordem_simult$simult,
+  labels = ordem_simult$rotulo_simult
+) +
+  
+  # ----------------------------------------------------------
+# CORES
+# ----------------------------------------------------------
+
+scale_fill_manual(
+  values = c(
+    "IL" = "black",
+    "ML" = "grey60"
+  ),
+  labels = c(
+    "IL" = "Ilha dos Lobos",
+    "ML" = "Molhe Leste"
+  )
+) +
+  
+  # ----------------------------------------------------------
+# EIXO Y
+# ----------------------------------------------------------
+
+scale_y_continuous(
+  expand = expansion(
+    mult = c(0, 0.10)
+  )
+) +
+  
+  # ----------------------------------------------------------
+# RÓTULOS DOS EIXOS E TÍTULO
+# ----------------------------------------------------------
+
+labs(
+  title = "Arctocephalus australis",
+  x = NULL,
+  y = "Number of individuals",
+  fill = "Wildlife Refuge"
+) +
+  
+  # ----------------------------------------------------------
+# TEMA
+# ----------------------------------------------------------
+
+theme_classic(
+  base_family = "Times New Roman",
+  base_size = 12
+) +
+  
+  theme(
+    
+    # --------------------------------------------------------
+    # NOME DA ESPÉCIE
+    # --------------------------------------------------------
+    
+    plot.title = element_text(
+      family = "Times New Roman",
+      size = 14,
+      face = "bold.italic",
+      hjust = 0.5,
+      margin = margin(
+        b = 12
+      )
+    ),
+    
+    # --------------------------------------------------------
+    # EIXO X
+    # --------------------------------------------------------
+    
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1,
+      size = 11,
+      family = "Times New Roman"
+    ),
+    
+    # --------------------------------------------------------
+    # EIXO Y
+    # --------------------------------------------------------
+    
+    axis.text.y = element_text(
+      size = 12,
+      family = "Times New Roman"
+    ),
+    
+    axis.title.y = element_text(
+      size = 12,
+      family = "Times New Roman",
+      face = "bold"
+    ),
+    
+    # --------------------------------------------------------
+    # LEGENDA
+    # --------------------------------------------------------
+    
+    legend.title = element_text(
+      size = 12,
+      family = "Times New Roman"
+    ),
+    
+    legend.text = element_text(
+      size = 11,
+      family = "Times New Roman"
+    )
+  )
+
+
+# ============================================================
+# MOSTRAR GRÁFICO
+# ============================================================
+
+grafico_australis
+
+
+# ============================================================
+# SALVAR
+# ============================================================
+
+ggsave(
+  filename = "Arctocephalus_australis_simult_empilhado.png",
+  plot = grafico_australis,
+  width = 14,
+  height = 7,
+  dpi = 300
+)
