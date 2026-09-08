@@ -499,24 +499,8 @@ painel_abundancia <-
     widths = c(1, 1)
   )
 
-# ============================================================
-# SÉRIE TEMPORAL MENSAL
-# Abril_2025 a Agosto_2026
-# ============================================================
-
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-
-# ============================================================
-# SÉRIE TEMPORAL POR REVIS
-# MÉDIA ± DESVIO PADRÃO
-# Abril/2025 a Agosto/2026
-# ============================================================
-
-library(dplyr)
-library(tidyr)
-library(ggplot2)
+###############################################################################
+###############################################################################
 
 # ============================================================
 # SÉRIE TEMPORAL POR REVIS
@@ -744,6 +728,7 @@ print(dados_mensal)
 # LINHAS:
 #    - média mensal
 # ============================================================
+
 # ============================================================
 # CRIAR ÍNDICE NUMÉRICO DO TEMPO
 # ============================================================
@@ -760,6 +745,75 @@ dados_mensal <- dados_mensal %>%
 
 
 # ============================================================
+# NOMES DOS MESES EM INGLÊS PARA O EIXO X
+# ============================================================
+
+ordem_meses_ingles <- c(
+  "April_2025",
+  "May_2025",
+  "June_2025",
+  "July_2025",
+  "August_2025",
+  "September_2025",
+  "October_2025",
+  "November_2025",
+  "December_2025",
+  "January_2026",
+  "February_2026",
+  "March_2026",
+  "April_2026",
+  "May_2026",
+  "June_2026",
+  "July_2026",
+  "August_2026"
+)
+
+
+# ============================================================
+# PADRONIZAR OS NOMES DOS REVIS
+#
+# IL -> Ilha dos Lobos
+# ML -> Molhe Leste
+# ============================================================
+
+dados_mensal <- dados_mensal %>%
+  mutate(
+    Wildlife_Refuge = case_when(
+      
+      grepl(
+        "^IL$|Ilha dos Lobos|REVIS IL",
+        revis,
+        ignore.case = TRUE
+      ) ~ "Ilha dos Lobos",
+      
+      grepl(
+        "^ML$|Molhe Leste|REVIS ML",
+        revis,
+        ignore.case = TRUE
+      ) ~ "Molhe Leste",
+      
+      TRUE ~ as.character(revis)
+    )
+  )
+
+
+# ============================================================
+# DEFINIR A ORDEM DA LEGENDA
+# ============================================================
+
+dados_mensal <- dados_mensal %>%
+  mutate(
+    Wildlife_Refuge = factor(
+      Wildlife_Refuge,
+      levels = c(
+        "Ilha dos Lobos",
+        "Molhe Leste"
+      )
+    )
+  )
+
+
+# ============================================================
 # 1. GRÁFICO COM LINHAS E IC 95% SUAVIZADOS
 # ============================================================
 
@@ -767,7 +821,7 @@ grafico_linha <- ggplot(
   dados_mensal,
   aes(
     x = tempo,
-    group = revis
+    group = Wildlife_Refuge
   )
 ) +
   
@@ -778,8 +832,8 @@ grafico_linha <- ggplot(
 geom_smooth(
   aes(
     y = media,
-    color = revis,
-    fill = revis
+    color = Wildlife_Refuge,
+    fill = Wildlife_Refuge
   ),
   method = "loess",
   formula = y ~ x,
@@ -797,7 +851,7 @@ geom_smooth(
 geom_smooth(
   aes(
     y = media,
-    color = revis
+    color = Wildlife_Refuge
   ),
   method = "loess",
   formula = y ~ x,
@@ -808,60 +862,126 @@ geom_smooth(
 ) +
   
   # ==========================================================
+# CORES
+#
+# Ilha dos Lobos = preto
+# Molhe Leste    = cinza
+# ==========================================================
+
+scale_color_manual(
+  values = c(
+    "Ilha dos Lobos" = "black",
+    "Molhe Leste" = "grey50"
+  )
+) +
+  
+  scale_fill_manual(
+    values = c(
+      "Ilha dos Lobos" = "black",
+      "Molhe Leste" = "grey50"
+    )
+  ) +
+  
+  # ==========================================================
 # EIXO X
 # ==========================================================
 
 scale_x_continuous(
   breaks = 1:length(ordem_meses),
-  labels = ordem_meses,
-  expand = expansion(mult = c(0.02, 0.02))
+  labels = ordem_meses_ingles,
+  expand = expansion(
+    mult = c(0.02, 0.02)
+  )
 ) +
   
   # ==========================================================
-# RÓTULOS
+# RÓTULOS EM INGLÊS
 # ==========================================================
 
 labs(
-  x = "Mês",
-  y = "Abundância média",
-  color = "REVIS",
-  fill = "REVIS"
+  x = "Month/Year",
+  y = "Number of indivíduals",
+  color = "Wildlife Refuge",
+  fill = "Wildlife Refuge"
 ) +
   
   # ==========================================================
 # TEMA
 # ==========================================================
 
-theme_classic() +
+theme_classic(
+  base_family = "Times New Roman",
+  base_size = 12
+) +
   
   theme(
+    
+    # --------------------------------------------------------
+    # EIXO X
+    # --------------------------------------------------------
     
     axis.text.x = element_text(
       angle = 45,
       hjust = 1,
       vjust = 1,
-      size = 10
+      size = 12,
+      family = "Times New Roman"
     ),
+    
+    # --------------------------------------------------------
+    # EIXO Y
+    # --------------------------------------------------------
     
     axis.text.y = element_text(
-      size = 10
+      size = 12,
+      family = "Times New Roman"
     ),
+    
+    # --------------------------------------------------------
+    # TÍTULO DO EIXO X
+    # --------------------------------------------------------
     
     axis.title.x = element_text(
-      size = 12
+      size = 12,
+      family = "Times New Roman",
+      face = "plain"
     ),
+    
+    # --------------------------------------------------------
+    # TÍTULO DO EIXO Y EM NEGRITO
+    # --------------------------------------------------------
     
     axis.title.y = element_text(
-      size = 12
+      size = 12,
+      family = "Times New Roman",
+      face = "bold"
     ),
     
+    # --------------------------------------------------------
+    # LEGENDA
+    # --------------------------------------------------------
+    
+    legend.position = "top",
+    
     legend.title = element_text(
-      size = 11
+      size = 12,
+      family = "Times New Roman"
     ),
     
     legend.text = element_text(
-      size = 10
+      size = 12,
+      family = "Times New Roman"
     ),
+    
+    # Espaçamento da legenda
+    legend.spacing.x = unit(
+      0.5,
+      "cm"
+    ),
+    
+    # --------------------------------------------------------
+    # SEM TÍTULO
+    # --------------------------------------------------------
     
     plot.title = element_blank()
   )
@@ -875,16 +995,636 @@ print(grafico_linha)
 
 
 # ============================================================
-# 3. SALVAR
+# 3. SALVAR O GRÁFICO
 # ============================================================
 
 ggsave(
-  filename = "serie_temporal_REVIS_LOESS_IC95.png",
+  filename = "serie_temporal_REVIS.png",
   plot = grafico_linha,
   width = 16,
   height = 8,
   dpi = 300
 )
 
+# ============================================================
+# 1. DEFINIR A ORDEM COMPLETA DOS MESES
+# ============================================================
+
+ordem_meses <- c(
+  "Abril_2025",
+  "Maio_2025",
+  "Junho_2025",
+  "Julho_2025",
+  "Agosto_2025",
+  "Setembro_2025",
+  "Outubro_2025",
+  "Novembro_2025",
+  "Dezembro_2025",
+  "Janeiro_2026",
+  "Fevereiro_2026",
+  "Março_2026",
+  "Abril_2026",
+  "Maio_2026",
+  "Junho_2026",
+  "Julho_2026",
+  "Agosto_2026"
+)
 
 
+# ============================================================
+# 2. NOMES DOS MESES EM PORTUGUÊS
+# ============================================================
+
+meses_pt <- c(
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro"
+)
+
+
+# ============================================================
+# 3. CRIAR MÊS_ANO A PARTIR DA COLUNA "data"
+# ============================================================
+
+dados_linha <- dados %>%
+  mutate(
+    
+    data = as.Date(data),
+    
+    mes_num = as.integer(
+      format(data, "%m")
+    ),
+    
+    ano_num = as.integer(
+      format(data, "%Y")
+    ),
+    
+    mes_ano = paste0(
+      meses_pt[mes_num],
+      "_",
+      ano_num
+    )
+  )
+
+
+# ============================================================
+# 4. FILTRAR O PERÍODO DE INTERESSE
+# ============================================================
+
+dados_linha <- dados_linha %>%
+  filter(
+    mes_ano %in% ordem_meses
+  )
+
+
+# ============================================================
+# 5. TRANSFORMAR MÊS_ANO EM FATOR ORDENADO
+# ============================================================
+
+dados_linha <- dados_linha %>%
+  mutate(
+    mes_ano = factor(
+      mes_ano,
+      levels = ordem_meses
+    )
+  )
+
+
+# ============================================================
+# 6. CONFERIR OS REVIS E AS ESPÉCIES
+# ============================================================
+
+print(unique(dados_linha$revis))
+
+print(unique(dados_linha$especie))
+
+
+# ============================================================
+# 7. CALCULAR:
+#    - N
+#    - MÉDIA
+#    - DESVIO PADRÃO
+#    - ERRO PADRÃO
+#    - IC 95%
+#
+#    AGORA POR:
+#    - REVIS
+#    - ESPÉCIE
+#    - MÊS
+# ============================================================
+
+dados_mensal <- dados_linha %>%
+  group_by(
+    revis,
+    especie,
+    mes_ano
+  ) %>%
+  summarise(
+    
+    # Número de observações
+    n = sum(
+      !is.na(abundancia)
+    ),
+    
+    # Média
+    media = mean(
+      abundancia,
+      na.rm = TRUE
+    ),
+    
+    # Desvio padrão
+    dp = sd(
+      abundancia,
+      na.rm = TRUE
+    ),
+    
+    .groups = "drop"
+  ) %>%
+  
+  mutate(
+    
+    # --------------------------------------------------------
+    # Erro padrão da média
+    # --------------------------------------------------------
+    
+    erro_padrao = ifelse(
+      n > 1,
+      dp / sqrt(n),
+      NA_real_
+    ),
+    
+    # --------------------------------------------------------
+    # Valor crítico da distribuição t
+    # --------------------------------------------------------
+    
+    t_critico = ifelse(
+      n > 1,
+      qt(
+        0.975,
+        df = n - 1
+      ),
+      NA_real_
+    ),
+    
+    # --------------------------------------------------------
+    # Limite inferior do IC 95%
+    # --------------------------------------------------------
+    
+    IC_inferior = ifelse(
+      n > 1,
+      media - t_critico * erro_padrao,
+      media
+    ),
+    
+    # --------------------------------------------------------
+    # Limite superior do IC 95%
+    # --------------------------------------------------------
+    
+    IC_superior = ifelse(
+      n > 1,
+      media + t_critico * erro_padrao,
+      media
+    )
+  )
+
+
+# ============================================================
+# 8. GARANTIR QUE TODOS OS MESES APAREÇAM
+#    PARA CADA REVIS E CADA ESPÉCIE
+# ============================================================
+
+dados_mensal <- dados_mensal %>%
+  complete(
+    revis,
+    especie,
+    mes_ano = factor(
+      ordem_meses,
+      levels = ordem_meses
+    )
+  )
+
+
+# ============================================================
+# 9. CONFERIR OS DADOS
+# ============================================================
+
+print(dados_mensal)
+
+
+# ============================================================
+# 10. CRIAR ÍNDICE NUMÉRICO DO TEMPO
+# ============================================================
+
+dados_mensal <- dados_mensal %>%
+  mutate(
+    tempo = as.numeric(
+      factor(
+        mes_ano,
+        levels = ordem_meses
+      )
+    )
+  )
+
+
+# ============================================================
+# 11. NOMES DOS MESES EM INGLÊS
+# ============================================================
+
+ordem_meses_ingles <- c(
+  "April_2025",
+  "May_2025",
+  "June_2025",
+  "July_2025",
+  "August_2025",
+  "September_2025",
+  "October_2025",
+  "November_2025",
+  "December_2025",
+  "January_2026",
+  "February_2026",
+  "March_2026",
+  "April_2026",
+  "May_2026",
+  "June_2026",
+  "July_2026",
+  "August_2026"
+)
+
+
+# ============================================================
+# 12. PADRONIZAR OS NOMES DOS REVIS
+#
+# IL -> Ilha dos Lobos
+# ML -> Molhe Leste
+# ============================================================
+
+dados_mensal <- dados_mensal %>%
+  mutate(
+    
+    Wildlife_Refuge = case_when(
+      
+      grepl(
+        "^IL$|Ilha dos Lobos|REVIS IL",
+        revis,
+        ignore.case = TRUE
+      ) ~ "Ilha dos Lobos",
+      
+      grepl(
+        "^ML$|Molhe Leste|REVIS ML",
+        revis,
+        ignore.case = TRUE
+      ) ~ "Molhe Leste",
+      
+      TRUE ~ as.character(revis)
+    )
+  )
+
+
+# ============================================================
+# 13. DEFINIR A ORDEM DA LEGENDA
+# ============================================================
+
+dados_mensal <- dados_mensal %>%
+  mutate(
+    Wildlife_Refuge = factor(
+      Wildlife_Refuge,
+      levels = c(
+        "Ilha dos Lobos",
+        "Molhe Leste"
+      )
+    )
+  )
+
+# ============================================================
+# 14. PADRONIZAR OS NOMES DAS ESPÉCIES
+# ============================================================
+
+dados_mensal <- dados_mensal %>%
+  mutate(
+    especie = case_when(
+      
+      especie == "o_flavescens" ~ "Otaria flavescens",
+      
+      especie == "a_australis" ~ "Arctocephalus australis",
+      
+      TRUE ~ as.character(especie)
+    )
+  )
+
+
+# ============================================================
+# 15. DEFINIR A ORDEM DAS ESPÉCIES
+# ============================================================
+
+dados_mensal <- dados_mensal %>%
+  mutate(
+    especie = factor(
+      especie,
+      levels = c(
+        "Otaria flavescens",
+        "Arctocephalus australis"
+      )
+    )
+  )
+
+
+# ============================================================
+# 16. GRÁFICO
+#
+# UM PAINEL PARA CADA ESPÉCIE
+# DUAS COLUNAS E UMA LINHA
+#
+# EIXO Y PADRONIZADO:
+# -30 ATÉ 100
+# ============================================================
+
+grafico_linha <- ggplot(
+  dados_mensal,
+  aes(
+    x = tempo,
+    group = Wildlife_Refuge
+  )
+) +
+  
+  # ==========================================================
+# INTERVALO DE CONFIANÇA 95% SUAVIZADO
+# ==========================================================
+
+geom_smooth(
+  aes(
+    y = media,
+    color = Wildlife_Refuge,
+    fill = Wildlife_Refuge
+  ),
+  method = "loess",
+  formula = y ~ x,
+  span = 0.75,
+  se = TRUE,
+  alpha = 0.20,
+  linewidth = 1.2,
+  na.rm = TRUE
+) +
+  
+  # ==========================================================
+# LINHA CENTRAL DA TENDÊNCIA SUAVIZADA
+# ==========================================================
+
+geom_smooth(
+  aes(
+    y = media,
+    color = Wildlife_Refuge
+  ),
+  method = "loess",
+  formula = y ~ x,
+  span = 0.75,
+  se = FALSE,
+  linewidth = 1.4,
+  na.rm = TRUE
+) +
+  
+  # ==========================================================
+# CORES
+# ==========================================================
+
+scale_color_manual(
+  values = c(
+    "Ilha dos Lobos" = "black",
+    "Molhe Leste" = "grey50"
+  )
+) +
+  
+  scale_fill_manual(
+    values = c(
+      "Ilha dos Lobos" = "black",
+      "Molhe Leste" = "grey50"
+    )
+  ) +
+  
+  # ==========================================================
+# EIXO X
+# ==========================================================
+
+scale_x_continuous(
+  breaks = 1:length(ordem_meses),
+  labels = ordem_meses_ingles,
+  expand = expansion(
+    mult = c(0.02, 0.02)
+  )
+) +
+  
+  # ==========================================================
+# EIXO Y
+#
+# MESMA ESCALA PARA AS DUAS ESPÉCIES
+# ==========================================================
+
+scale_y_continuous(
+  limits = c(-30, 100),
+  breaks = seq(
+    -30,
+    100,
+    by = 10
+  )
+) +
+  
+  # ==========================================================
+# RÓTULOS
+# ==========================================================
+
+labs(
+  x = "Month/Year",
+  y = "Number of individuals",
+  color = "Wildlife Refuge",
+  fill = "Wildlife Refuge"
+) +
+  
+  # ==========================================================
+# FACET
+#
+# DUAS COLUNAS E UMA LINHA
+# ==========================================================
+
+facet_wrap(
+  ~ especie,
+  ncol = 2
+) +
+  
+  # ==========================================================
+# TEMA
+# ==========================================================
+
+theme_classic(
+  base_family = "Times New Roman",
+  base_size = 12
+) +
+  
+theme(
+  
+  # --------------------------------------------------------
+  # EIXO X
+  # --------------------------------------------------------
+  
+  axis.text.x = element_text(
+    angle = 45,
+    hjust = 1,
+    vjust = 1,
+    size = 12,
+    family = "Times New Roman"
+  ),
+  
+  # --------------------------------------------------------
+  # EIXO Y
+  # --------------------------------------------------------
+  
+  axis.text.y = element_text(
+    size = 12,
+    family = "Times New Roman"
+  ),
+  
+  # --------------------------------------------------------
+  # TÍTULOS DOS EIXOS
+  # --------------------------------------------------------
+  
+  axis.title.x = element_text(
+    size = 12,
+    family = "Times New Roman",
+    face = "plain"
+  ),
+  
+  axis.title.y = element_text(
+    size = 12,
+    family = "Times New Roman",
+    face = "bold"
+  ),
+  
+  # --------------------------------------------------------
+  # LEGENDA
+  # --------------------------------------------------------
+  
+  legend.position = "top",
+  
+  legend.title = element_text(
+    size = 12,
+    family = "Times New Roman"
+  ),
+  
+  legend.text = element_text(
+    size = 12,
+    family = "Times New Roman"
+  ),
+  
+  legend.spacing.x = unit(
+    0.5,
+    "cm"
+  ),
+  
+  # --------------------------------------------------------
+  # NOMES DAS ESPÉCIES
+  # --------------------------------------------------------
+  
+  strip.text = element_text(
+    size = 12,
+    family = "Times New Roman",
+    face = "bold.italic"
+  ),
+  
+  plot.title = element_blank()
+)
+
+# ============================================================
+# 17. MOSTRAR O GRÁFICO
+# ============================================================
+
+print(grafico_linha)
+
+
+# ============================================================
+# 18. SALVAR O GRÁFICO
+# ============================================================
+
+ggsave(
+  filename = "serie_temporal_REVIS_por_especie.png",
+  plot = grafico_linha,
+  width = 16,
+  height = 8,
+  dpi = 300
+)
+
+################################################################################
+################################################################################
+
+# Ler planilha
+
+dados_simul <- read_excel("dados_geral_2025_2026_simultaneo.xlsx")
+
+head(dados_simul)      # primeiras linhas
+summary(dados_simul)   # resumo estatístico
+str(dados_simul)       # estrutura das variáveis
+
+#------------------------------------------------------------------------------#
+
+# 1. Preparar os dados
+
+dados_simul$data <- as.Date(dados_simul$data, format = "%d/%m/%Y")
+dados_simul$especie <- as.factor(dados_simul$especie)
+dados_simul$Mês <- as.numeric(dados_simul$Mês)
+dados_simul$turno <- as.factor(dados_simul$turno)
+dados_simul$revis <- as.factor(dados_simul$revis)
+dados_simul$simult <- as.factor(dados_simul$simult)
+
+str(dados_simul)
+
+#------------------------------------------------------------------------------#
+
+# 2. Teste de normalidade (Shapiro-Wilk)
+
+library(dplyr)
+
+shapiro.test(dados_simul$abundancia)
+
+boxplot(dados_simul$abundancia)
+
+hist(dados_simul$abundancia)
+
+#------------------------------------------------------------------------------#
+
+names(dados_simul)
+
+# 7. Ajuste um modelo Binomial Negativa
+
+library(glmmTMB)
+
+m_nb_aditivo_simul <- glmmTMB(abundancia ~ especie + Mês + turno + revis + (1 | voo), 
+                        data = dados_simul, 
+                        family = nbinom2)
+
+summary(m_nb_aditivo_simul)
+
+residuos_adit_sim <- residuals(m_nb_aditivo_simul, type = "pearson")
+
+shapiro.test(residuos_adit_sim)
+
+hist(residuos_adit_sim)
+
+m_nb_interacao_simul <- glmmTMB(abundancia ~ revis*especie + revis*Mês + revis*turno + (1 | voo), 
+                          data = dados_simul, 
+                          family = nbinom2)
+
+summary(m_nb_interacao_simul)
+
+residuos_int <- residuals(m_nb_interacao, type = "pearson")
+
+shapiro.test(residuos_int)
+
+hist(residuos_int)
+
+#------------------------------------------------------------------------------#
