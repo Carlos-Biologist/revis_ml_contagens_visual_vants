@@ -500,17 +500,391 @@ painel_abundancia <-
   )
 
 # ============================================================
-# EXIBIR PAINEL
+# SÉRIE TEMPORAL MENSAL
+# Abril_2025 a Agosto_2026
 # ============================================================
 
-painel_abundancia
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# ============================================================
+# SÉRIE TEMPORAL POR REVIS
+# MÉDIA ± DESVIO PADRÃO
+# Abril/2025 a Agosto/2026
+# ============================================================
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# ============================================================
+# SÉRIE TEMPORAL POR REVIS
+# MÉDIA + INTERVALO DE CONFIANÇA DE 95%
+# Abril/2025 a Agosto/2026
+# ============================================================
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+
+# ============================================================
+# 1. DEFINIR A ORDEM COMPLETA DOS MESES
+# ============================================================
+
+ordem_meses <- c(
+  "Abril_2025",
+  "Maio_2025",
+  "Junho_2025",
+  "Julho_2025",
+  "Agosto_2025",
+  "Setembro_2025",
+  "Outubro_2025",
+  "Novembro_2025",
+  "Dezembro_2025",
+  "Janeiro_2026",
+  "Fevereiro_2026",
+  "Março_2026",
+  "Abril_2026",
+  "Maio_2026",
+  "Junho_2026",
+  "Julho_2026",
+  "Agosto_2026"
+)
+
+
+# ============================================================
+# 2. NOMES DOS MESES EM PORTUGUÊS
+# ============================================================
+
+meses_pt <- c(
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro"
+)
+
+
+# ============================================================
+# 3. CRIAR MÊS_ANO A PARTIR DA COLUNA "data"
+# ============================================================
+
+dados_linha <- dados %>%
+  mutate(
+    
+    # Garantir que a coluna data seja Date
+    data = as.Date(data),
+    
+    # Extrair mês
+    mes_num = as.integer(format(data, "%m")),
+    
+    # Extrair ano
+    ano_num = as.integer(format(data, "%Y")),
+    
+    # Criar Mês_Ano
+    mes_ano = paste0(
+      meses_pt[mes_num],
+      "_",
+      ano_num
+    )
+  )
+
+
+# ============================================================
+# 4. FILTRAR O PERÍODO DE INTERESSE
+# ============================================================
+
+dados_linha <- dados_linha %>%
+  filter(
+    mes_ano %in% ordem_meses
+  )
+
+
+# ============================================================
+# 5. TRANSFORMAR MÊS_ANO EM FATOR ORDENADO
+# ============================================================
+
+dados_linha <- dados_linha %>%
+  mutate(
+    mes_ano = factor(
+      mes_ano,
+      levels = ordem_meses
+    )
+  )
+
+
+# ============================================================
+# 6. CONFERIR OS REVIS EXISTENTES
+# ============================================================
+
+print(unique(dados_linha$revis))
+
+
+# ============================================================
+# 7. CALCULAR:
+#    - N
+#    - MÉDIA
+#    - DESVIO PADRÃO
+#    - ERRO PADRÃO
+#    - IC 95%
+# ============================================================
+
+dados_mensal <- dados_linha %>%
+  group_by(
+    revis,
+    mes_ano
+  ) %>%
+  summarise(
+    
+    # Número de observações
+    n = sum(!is.na(abundancia)),
+    
+    # Média
+    media = mean(
+      abundancia,
+      na.rm = TRUE
+    ),
+    
+    # Desvio padrão
+    dp = sd(
+      abundancia,
+      na.rm = TRUE
+    ),
+    
+    .groups = "drop"
+  ) %>%
+  
+  mutate(
+    
+    # --------------------------------------------------------
+    # Erro padrão da média
+    # --------------------------------------------------------
+    
+    erro_padrao = ifelse(
+      n > 1,
+      dp / sqrt(n),
+      NA_real_
+    ),
+    
+    # --------------------------------------------------------
+    # Valor crítico da distribuição t
+    # --------------------------------------------------------
+    
+    t_critico = ifelse(
+      n > 1,
+      qt(
+        0.975,
+        df = n - 1
+      ),
+      NA_real_
+    ),
+    
+    # --------------------------------------------------------
+    # Limite inferior do IC 95%
+    # --------------------------------------------------------
+    
+    IC_inferior = ifelse(
+      n > 1,
+      media - t_critico * erro_padrao,
+      media
+    ),
+    
+    # --------------------------------------------------------
+    # Limite superior do IC 95%
+    # --------------------------------------------------------
+    
+    IC_superior = ifelse(
+      n > 1,
+      media + t_critico * erro_padrao,
+      media
+    )
+  )
+
+
+# ============================================================
+# 8. GARANTIR QUE TODOS OS MESES APAREÇAM
+#    PARA CADA REVIS
+# ============================================================
+
+dados_mensal <- dados_mensal %>%
+  complete(
+    revis,
+    mes_ano = factor(
+      ordem_meses,
+      levels = ordem_meses
+    )
+  )
+
+
+# ============================================================
+# 9. CONFERIR OS DADOS
+# ============================================================
+
+print(dados_mensal)
+
+
+# ============================================================
+# 10. GRÁFICO
+#
+# DUAS LINHAS:
+#    - uma para cada REVIS
+#
+# FAIXAS SOMBREADAS:
+#    - IC 95%
+#
+# LINHAS:
+#    - média mensal
+# ============================================================
+# ============================================================
+# CRIAR ÍNDICE NUMÉRICO DO TEMPO
+# ============================================================
+
+dados_mensal <- dados_mensal %>%
+  mutate(
+    tempo = as.numeric(
+      factor(
+        mes_ano,
+        levels = ordem_meses
+      )
+    )
+  )
+
+
+# ============================================================
+# 1. GRÁFICO COM LINHAS E IC 95% SUAVIZADOS
+# ============================================================
+
+grafico_linha <- ggplot(
+  dados_mensal,
+  aes(
+    x = tempo,
+    group = revis
+  )
+) +
+  
+  # ==========================================================
+# INTERVALO DE CONFIANÇA 95% SUAVIZADO
+# ==========================================================
+
+geom_smooth(
+  aes(
+    y = media,
+    color = revis,
+    fill = revis
+  ),
+  method = "loess",
+  formula = y ~ x,
+  span = 0.75,
+  se = TRUE,
+  alpha = 0.20,
+  linewidth = 1.2,
+  na.rm = TRUE
+) +
+  
+  # ==========================================================
+# LINHA CENTRAL DA TENDÊNCIA SUAVIZADA
+# ==========================================================
+
+geom_smooth(
+  aes(
+    y = media,
+    color = revis
+  ),
+  method = "loess",
+  formula = y ~ x,
+  span = 0.75,
+  se = FALSE,
+  linewidth = 1.4,
+  na.rm = TRUE
+) +
+  
+  # ==========================================================
+# EIXO X
+# ==========================================================
+
+scale_x_continuous(
+  breaks = 1:length(ordem_meses),
+  labels = ordem_meses,
+  expand = expansion(mult = c(0.02, 0.02))
+) +
+  
+  # ==========================================================
+# RÓTULOS
+# ==========================================================
+
+labs(
+  x = "Mês",
+  y = "Abundância média",
+  color = "REVIS",
+  fill = "REVIS"
+) +
+  
+  # ==========================================================
+# TEMA
+# ==========================================================
+
+theme_classic() +
+  
+  theme(
+    
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1,
+      size = 10
+    ),
+    
+    axis.text.y = element_text(
+      size = 10
+    ),
+    
+    axis.title.x = element_text(
+      size = 12
+    ),
+    
+    axis.title.y = element_text(
+      size = 12
+    ),
+    
+    legend.title = element_text(
+      size = 11
+    ),
+    
+    legend.text = element_text(
+      size = 10
+    ),
+    
+    plot.title = element_blank()
+  )
+
+
+# ============================================================
+# 2. MOSTRAR O GRÁFICO
+# ============================================================
+
+print(grafico_linha)
+
+
+# ============================================================
+# 3. SALVAR
+# ============================================================
 
 ggsave(
-  filename = "painel_abundancia.png",
-  plot = painel_abundancia,
-  width = 12,
+  filename = "serie_temporal_REVIS_LOESS_IC95.png",
+  plot = grafico_linha,
+  width = 16,
   height = 8,
-  units = "in",
-  dpi = 600,
-  bg = "white"
+  dpi = 300
 )
+
+
+
