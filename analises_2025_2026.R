@@ -54,125 +54,463 @@ m_nb_aditivo <- glmmTMB(abundancia ~ especie + Mês + turno + revis + (1 | voo),
 
 summary(m_nb_aditivo)
 
+residuos_adit <- residuals(m_nb_aditivo, type = "pearson")
+
+shapiro.test(residuos_adit)
+
+hist(residuos_adit)
+
 m_nb_interacao <- glmmTMB(abundancia ~ revis*especie + revis*Mês + revis*turno + (1 | voo), 
                         data = dados, 
                         family = nbinom2)
 
 summary(m_nb_interacao)
 
-#------------------------------------------------------------------------------#
+residuos_int <- residuals(m_nb_interacao, type = "pearson")
 
-# 10. Visualizar as distribuições com boxplots e histogramas
+shapiro.test(residuos_int)
 
-boxplot(Contagem ~ Monitoramento, data = dados)
-boxplot(Contagem ~ Espécie, data = dados)
-
-#------------------------------------------------------------------------------#
-
-# 10. Extrair as médias ajustadas (em escala original, não log) 
-
-library(emmeans)
-library(ggplot2)
-
-# 11. Médias ajustadas (em escala original, não log)
-emm <- emmeans(m_nb, ~ Espécie * Monitoramento, type = "response")
-emm
-
-# 12. Converter para data.frame para plotagem
-emm_df <- as.data.frame(emm)
-
-# 13. Gráfico com ggplot2
-
-ggplot(emm_df, aes(x = Espécie, y = response, fill = Monitoramento)) +
-  geom_bar(stat = "identity", position = position_dodge()) +
-  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), 
-                width = 0.2, position = position_dodge(0.9)) +
-  labs(y = "Contagem esperada", 
-       x = "Espécie", 
-       fill = "Monitoramento",
-       title = "Médias ajustadas do modelo Binomial Negativa") +
-  theme_minimal()
-
-#------------------------------------------------------------------------------#
-
-dados_of <- subset(dados, Espécie == "o_flavescens")
-dados_aa <- subset(dados, Espécie == "a_australis")
-
-#------------------------------------------------------------------------------#
-
-library(tidyr)
-
-dados_of_wide <- pivot_wider(
-  dados_of,
-  id_cols = Data,
-  names_from = Monitoramento,
-  values_from = Contagem
-)
-
-wilcox.test(
-  dados_of_wide$visual,
-  dados_of_wide$vant,
-  paired = TRUE
-)
-
-#------------------------------------------------------------------------------#
-
-dados_aa_wide <- pivot_wider(
-  dados_aa,
-  id_cols = Data,
-  names_from = Monitoramento,
-  values_from = Contagem
-)
-
-wilcox.test(
-  dados_aa_wide$visual,
-  dados_aa_wide$vant,
-  paired = TRUE
-)
+hist(residuos_int)
 
 #------------------------------------------------------------------------------#
 
 library(ggplot2)
+library(dplyr)
 
-# Exemplo para a_australis
-dados_aa <- subset(dados, Espécie == "a_australis")
+# ============================================================
+# CALCULAR ABUNDÂNCIA MÉDIA E DESVIO PADRÃO POR REVIS E TURNO
+# ============================================================
 
-ggplot(dados_aa,
-       aes(x = Monitoramento,
-           y = Contagem,
-           group = Data)) +
-  geom_line(alpha = 0.6) +
-  geom_point(size = 3) +
+dados_grafico <- dados %>%
+  group_by(revis, turno) %>%
+  summarise(
+    abundancia_media = mean(abundancia, na.rm = TRUE),
+    desvio_padrao = sd(abundancia, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# ============================================================
+# GRÁFICO
+# ============================================================
+
+abund_revis_turno <- ggplot(
+  dados_grafico,
+  aes(
+    x = revis,
+    y = abundancia_media,
+    fill = turno
+  )
+) +
+  
+  # Barras
+  geom_col(
+    position = position_dodge(width = 0.8),
+    width = 0.7,
+    color = "black"
+  ) +
+  
+  # Barras de desvio padrão — somente superior
+  geom_errorbar(
+    aes(
+      ymin = abundancia_media,
+      ymax = abundancia_media + desvio_padrao
+    ),
+    position = position_dodge(width = 0.8),
+    width = 0.2,
+    color = "black"
+  ) +
+  
+  # Cores dos períodos
+  scale_fill_manual(
+    values = c(
+      "Diurno" = "grey60",
+      "Noturno" = "black"
+    ),
+    labels = c(
+      "Diurno" = "Daytime",
+      "Noturno" = "Nighttime"
+    )
+  ) +
+  
+  # Eixo X com nomes completos
+  scale_x_discrete(
+    labels = c(
+      "IL" = "Ilha dos Lobos",
+      "ML" = "Molhe Leste"
+    )
+  ) +
+  
+  # Eixo Y de 10 em 10, iniciando no zero
+  scale_y_continuous(
+    breaks = seq(
+      0,
+      max(
+        dados_grafico$abundancia_media +
+          dados_grafico$desvio_padrao,
+        na.rm = TRUE
+      ) + 10,
+      by = 10
+    ),
+    expand = c(0, 0)
+  ) +
+  
+  # Títulos e legendas
+  labs(
+    x = NULL,
+    y = "Number of individuals",
+    fill = "Periods"
+  ) +
+  
+  # Tema
   theme_classic() +
-  labs(x = "Monitoramento",
-       y = "Contagem",
-       title = "Arctocephalus australis")
+  
+  theme(
+    # Fonte geral
+    text = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    # Título do eixo Y em negrito
+    axis.title.y = element_text(
+      family = "Times New Roman",
+      size = 12,
+      face = "bold"
+    ),
+    
+    # Título do eixo X removido
+    axis.title.x = element_blank(),
+    
+    # Textos dos eixos
+    axis.text.x = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    axis.text.y = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    # Título da legenda
+    legend.title = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    # Texto da legenda
+    legend.text = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    # Legenda na parte superior
+    legend.position = "top"
+  )
 
-#------------------------------------------------------------------------------#
+abund_revis_turno
 
-ggplot(dados_of,
-       aes(x = Monitoramento,
-           y = Contagem,
-           group = Data)) +
-  geom_line(alpha = 0.6) +
-  geom_point(size = 3) +
+# ============================================================
+# FILTRAR DADOS DIURNOS
+# ============================================================
+
+dados_diurno <- dados %>%
+  filter(turno == "Diurno")
+
+# ============================================================
+# CALCULAR ABUNDÂNCIA MÉDIA E DESVIO PADRÃO
+# POR REVIS E ESPÉCIE
+# ============================================================
+
+dados_grafico_diurno <- dados_diurno %>%
+  group_by(revis, especie) %>%
+  summarise(
+    abundancia_media = mean(abundancia, na.rm = TRUE),
+    desvio_padrao = sd(abundancia, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# ============================================================
+# GRÁFICO
+# ============================================================
+
+abund_revis_especie_diurno <- ggplot(
+  dados_grafico_diurno,
+  aes(
+    x = revis,
+    y = abundancia_media,
+    fill = especie
+  )
+) +
+  
+  # Barras
+  geom_col(
+    position = position_dodge(width = 0.8),
+    width = 0.7,
+    color = "black"
+  ) +
+  
+  # Desvio padrão — somente superior
+  geom_errorbar(
+    aes(
+      ymin = abundancia_media,
+      ymax = abundancia_media + desvio_padrao
+    ),
+    position = position_dodge(width = 0.8),
+    width = 0.2,
+    color = "black"
+  ) +
+  
+  # Cores e nomes das espécies
+  scale_fill_manual(
+    values = c(
+      "o_flavescens" = "black",
+      "a_australis" = "grey60"
+    ),
+    labels = c(
+      "o_flavescens" = expression(italic("Otaria flavescens")),
+      "a_australis" = expression(italic("Arctocephalus australis"))
+    )
+  ) +
+  
+  # Eixo X com nomes completos
+  scale_x_discrete(
+    labels = c(
+      "IL" = "Ilha dos Lobos",
+      "ML" = "Molhe Leste"
+    )
+  ) +
+  
+  # Eixo Y de 10 em 10, iniciando no zero
+  scale_y_continuous(
+    breaks = seq(
+      0,
+      max(
+        dados_grafico_diurno$abundancia_media +
+          dados_grafico_diurno$desvio_padrao,
+        na.rm = TRUE
+      ) + 10,
+      by = 10
+    ),
+    expand = c(0, 0)
+  ) +
+  
+  # Títulos e legendas
+  labs(
+    x = NULL,
+    y = "Number of individuals",
+    fill = "Species"
+  ) +
+  
+  # Tema
   theme_classic() +
-  labs(x = "Monitoramento",
-       y = "Contagem",
-       title = "Otaria flavescens")
+  
+  theme(
+    # Fonte geral
+    text = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    # Título do eixo Y em negrito
+    axis.title.y = element_text(
+      family = "Times New Roman",
+      size = 12,
+      face = "bold"
+    ),
+    
+    # Título do eixo X removido
+    axis.title.x = element_blank(),
+    
+    # Textos dos eixos
+    axis.text.x = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    axis.text.y = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    # Título da legenda
+    legend.title = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    # Texto da legenda
+    legend.text = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    # Legenda na parte superior
+    legend.position = "top"
+  )
 
-#------------------------------------------------------------------------------#
+# Exibir gráfico
+abund_revis_especie_diurno
 
-dados_wide <- pivot_wider(
-  dados,
-  id_cols = c(Data, Espécie),
-  names_from = Monitoramento,
-  values_from = Contagem
-)
+# ============================================================
+# FILTRAR DADOS NOTURNOS
+# ============================================================
 
-wilcox.test(
-  dados_wide$visual,
-  dados_wide$vant,
-  paired = TRUE,
-  exact = FALSE
+dados_noturno <- dados %>%
+  filter(turno == "Noturno")
+
+# ============================================================
+# CALCULAR ABUNDÂNCIA MÉDIA E DESVIO PADRÃO
+# POR REVIS E ESPÉCIE
+# ============================================================
+
+dados_grafico_noturno <- dados_noturno %>%
+  group_by(revis, especie) %>%
+  summarise(
+    abundancia_media = mean(abundancia, na.rm = TRUE),
+    desvio_padrao = sd(abundancia, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# ============================================================
+# GRÁFICO
+# ============================================================
+
+abund_revis_especie_noturno <- ggplot(
+  dados_grafico_noturno,
+  aes(
+    x = revis,
+    y = abundancia_media,
+    fill = especie
+  )
+) +
+  
+  # Barras
+  geom_col(
+    position = position_dodge(width = 0.8),
+    width = 0.7,
+    color = "black"
+  ) +
+  
+  # Desvio padrão — somente superior
+  geom_errorbar(
+    aes(
+      ymin = abundancia_media,
+      ymax = abundancia_media + desvio_padrao
+    ),
+    position = position_dodge(width = 0.8),
+    width = 0.2,
+    color = "black"
+  ) +
+  
+  # Cores das espécies
+  scale_fill_manual(
+    values = c(
+      "o_flavescens" = "black",
+      "a_australis" = "grey60"
+    )
+  ) +
+  
+  # Eixo X com nomes completos
+  scale_x_discrete(
+    labels = c(
+      "IL" = "Ilha dos Lobos",
+      "ML" = "Molhe Leste"
+    )
+  ) +
+  
+  # Eixo Y de 10 em 10, iniciando no zero
+  scale_y_continuous(
+    breaks = seq(
+      0,
+      max(
+        dados_grafico_noturno$abundancia_media +
+          dados_grafico_noturno$desvio_padrao,
+        na.rm = TRUE
+      ) + 10,
+      by = 10
+    ),
+    expand = c(0, 0)
+  ) +
+  
+  # Títulos dos eixos
+  labs(
+    x = NULL,
+    y = "Number of individuals"
+  ) +
+  
+  # Tema
+  theme_classic() +
+  
+  theme(
+    # Fonte geral
+    text = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    # Título do eixo Y em negrito
+    axis.title.y = element_text(
+      family = "Times New Roman",
+      size = 12,
+      face = "bold"
+    ),
+    
+    # Título do eixo X removido
+    axis.title.x = element_blank(),
+    
+    # Textos dos eixos
+    axis.text.x = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    axis.text.y = element_text(
+      family = "Times New Roman",
+      size = 12
+    ),
+    
+    # EXCLUIR LEGENDA
+    legend.position = "none"
+  )
+
+# Exibir gráfico
+abund_revis_especie_noturno
+
+# ============================================================
+# INSTALAR O PACOTE, CASO AINDA NÃO TENHA
+# ============================================================
+
+# install.packages("patchwork")
+
+library(patchwork)
+
+# ============================================================
+# MONTAR PAINEL
+# ============================================================
+
+painel_abundancia <-
+  abund_revis_turno +
+  (
+    abund_revis_especie_diurno /
+      abund_revis_especie_noturno
+  ) +
+  plot_layout(
+    widths = c(1, 1)
+  )
+
+# ============================================================
+# EXIBIR PAINEL
+# ============================================================
+
+painel_abundancia
+
+ggsave(
+  filename = "painel_abundancia.png",
+  plot = painel_abundancia,
+  width = 12,
+  height = 8,
+  units = "in",
+  dpi = 600,
+  bg = "white"
 )
