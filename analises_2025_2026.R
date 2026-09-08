@@ -1,7 +1,9 @@
 #------------------------------------------------------------------------------#
 
-# Carregar pacotes
+# instalar pacote
+#library('readxl')
 
+# Carregar pacotes
 library(readxl)
 
 #------------------------------------------------------------------------------#
@@ -18,10 +20,11 @@ str(dados)       # estrutura das variáveis
 
 # 1. Preparar os dados
 
-dados$Data <- as.Date(dados$Data, format = "%d/%m/%Y")
-dados$Espécie <- as.factor(dados$Espécie)
-dados$Monitoramento <- as.factor(dados$Monitoramento)
-dados$Contagem <- as.numeric(dados$Contagem)
+dados$data <- as.Date(dados$data, format = "%d/%m/%Y")
+dados$especie <- as.factor(dados$especie)
+dados$Mês <- as.numeric(dados$Mês)
+dados$turno <- as.factor(dados$turno)
+dados$revis <- as.factor(dados$revis)
 
 str(dados)
 
@@ -31,90 +34,31 @@ str(dados)
 
 library(dplyr)
 
-dados %>%
-  group_by(Espécie, Monitoramento) %>%
-  summarise(
-    p.value = shapiro.test(Contagem)$p.value
-  )
+shapiro.test(dados$abundancia)
+
+boxplot(dados$abundancia)
+
+hist(dados$abundancia)
 
 #------------------------------------------------------------------------------#
 
-# 3. Verificar a homogeneidade das variâncias com o teste de Levene
-
-library(car)
-
-leveneTest(
-  Contagem ~ interaction(Espécie, Monitoramento),
-  data = dados
-)
-
-#------------------------------------------------------------------------------#
-
-# 4. Visualizar as distribuições com boxplots e histogramas
-
-boxplot(Contagem ~ Espécie * Monitoramento, data = dados)
-
-hist(dados$Contagem)
-
-#------------------------------------------------------------------------------#
-
-# 5. Ajuste um modelo Poisson
-
-library(lme4)
-
-m_pois <- glmer(Contagem ~ Espécie * Monitoramento + (1 | Data), 
-                data = dados, 
-                family = poisson)
-
-summary(m_pois)
-
-# 6. Teste de superdispersão
-
-overdisp_fun <- function(model) {
-  rdf <- df.residual(model)
-  rp <- residuals(model, type = "pearson")
-  Pearson.chisq <- sum(rp^2)
-  prat <- Pearson.chisq / rdf
-  pval <- pchisq(Pearson.chisq, df = rdf, lower.tail = FALSE)
-  c(chisq = Pearson.chisq, ratio = prat, rdf = rdf, p = pval)
-}
-
-overdisp_fun(m_pois)
-
-# Se o 'ratio' for >> 1, há superdispersão
-
-#------------------------------------------------------------------------------#
+names(dados)
 
 # 7. Ajuste um modelo Binomial Negativa
 
 library(glmmTMB)
 
-m_nb <- glmmTMB(Contagem ~ Espécie * Monitoramento + (1 | Data), 
+m_nb_aditivo <- glmmTMB(abundancia ~ especie + Mês + turno + revis + (1 | voo), 
                 data = dados, 
                 family = nbinom2)
 
-summary(m_nb)
+summary(m_nb_aditivo)
 
-# 8. Teste de AKAIKE
+m_nb_interacao <- glmmTMB(abundancia ~ revis*especie + revis*Mês + revis*turno + (1 | voo), 
+                        data = dados, 
+                        family = nbinom2)
 
-AIC(m_pois, m_nb)
-
-# 9. Teste de superdispersão
-
-overdisp_fun(m_nb)
-
-#------------------------------------------------------------------------------#
-
-m_nb2 <- glmmTMB(
-  Contagem ~ Espécie + Monitoramento + (1 | Data),
-  family = nbinom2,
-  data = dados
-)
-
-anova(m_nb, m_nb2)
-AIC(m_nb, m_nb2)
-
-summary(m_nb2)
+summary(m_nb_interacao)
 
 #------------------------------------------------------------------------------#
 
