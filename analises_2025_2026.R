@@ -47,12 +47,48 @@ names(dados)
 # 7. Ajuste um modelo Binomial Negativa
 
 library(glmmTMB)
+library(performance)
 
 m_nb_aditivo <- glmmTMB(abundancia ~ especie + Mês + turno + revis + (1 | voo), 
                 data = dados, 
                 family = nbinom2)
 
 summary(m_nb_aditivo)
+
+r2_nakagawa(m_nb_aditivo)
+
+# ============================================================
+# MODELO NULO
+# ============================================================
+
+m_nb_nulo <- glmmTMB(
+  abundancia ~ 1 + (1 | voo),
+  data = dados,
+  family = nbinom2
+)
+
+
+# ============================================================
+# VERIFICAR O MODELO NULO
+# ============================================================
+
+summary(m_nb_nulo)
+
+
+# ============================================================
+# CALCULAR R² USANDO O MODELO NULO
+# ============================================================
+
+library(performance)
+
+r2_nb <- r2_nakagawa(
+  m_nb_aditivo,
+  null_model = m_nb_nulo
+)
+
+r2_nb
+
+
 
 residuos_adit <- residuals(m_nb_aditivo, type = "pearson")
 
@@ -65,6 +101,8 @@ m_nb_interacao <- glmmTMB(abundancia ~ revis*especie + revis*Mês + revis*turno 
                         family = nbinom2)
 
 summary(m_nb_interacao)
+
+r2_nakagawa(m_nb_interacao)
 
 residuos_int <- residuals(m_nb_interacao, type = "pearson")
 
