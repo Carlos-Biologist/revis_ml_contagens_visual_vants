@@ -2264,3 +2264,113 @@ ggsave(
   height = 7,
   dpi = 300
 )
+
+#------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+
+# Ler planilha
+
+library(dplyr)
+
+dados_temporada <- read_excel("dados_geral_2025_2026_simultaneo_temporada.xlsx") %>%
+  filter(Mês %in% c(8, 9, 10, 11))
+
+head(dados_temporada)      # primeiras linhas
+summary(dados_temporada)   # resumo estatístico
+str(dados_temporada)       # estrutura das variáveis
+
+#------------------------------------------------------------------------------#
+
+# 1. Preparar os dados
+
+dados_temporada$especie <- as.factor(dados_temporada$especie)
+dados_temporada$Mês <- as.numeric(dados_temporada$Mês)
+dados_temporada$turno <- as.factor(dados_temporada$turno)
+dados_temporada$revis <- as.factor(dados_temporada$revis)
+
+str(dados_temporada)
+
+#------------------------------------------------------------------------------#
+
+# 2. Teste de normalidade (Shapiro-Wilk)
+
+library(dplyr)
+
+shapiro.test(dados$abundancia)
+
+boxplot(dados$abundancia)
+
+hist(dados$abundancia)
+
+#------------------------------------------------------------------------------#
+
+names(dados)
+
+# 7. Ajuste um modelo Binomial Negativa
+
+library(glmmTMB)
+library(performance)
+
+m_nb_aditivo_turno <- glmmTMB(abundancia ~ especie + Mês + turno + revis + (1 | voo), 
+                        data = dados_temporada, 
+                        family = nbinom2)
+
+summary(m_nb_aditivo_turno)
+
+r2_nakagawa(m_nb_aditivo_turno)
+
+# ============================================================
+# MODELO NULO
+# ============================================================
+
+m_nb_nulo <- glmmTMB(
+  abundancia ~ 1 + (1 | voo),
+  data = dados_temporada,
+  family = nbinom2
+)
+
+
+# ============================================================
+# VERIFICAR O MODELO NULO
+# ============================================================
+
+summary(m_nb_nulo)
+
+
+# ============================================================
+# CALCULAR R² USANDO O MODELO NULO
+# ============================================================
+
+library(performance)
+
+r2_nb <- r2_nakagawa(
+  m_nb_aditivo,
+  null_model = m_nb_nulo
+)
+
+r2_nb
+
+
+
+residuos_adit <- residuals(m_nb_aditivo, type = "pearson")
+
+shapiro.test(residuos_adit)
+
+hist(residuos_adit)
+
+m_nb_interacao_turno <- glmmTMB(abundancia ~ revis*especie + revis*Mês + revis*turno + (1 | voo), 
+                          data = dados_temporada, 
+                          family = nbinom2)
+
+summary(m_nb_interacao_turno)
+
+r2_nakagawa(m_nb_interacao)
+
+residuos_int <- residuals(m_nb_interacao, type = "pearson")
+
+shapiro.test(residuos_int)
+
+hist(residuos_int)
+
+#------------------------------------------------------------------------------#
