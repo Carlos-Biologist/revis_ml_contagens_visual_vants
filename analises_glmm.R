@@ -34,12 +34,14 @@ dados$voo <- as.factor(dados$voo)
 dados$mes_sin <- sin(2*pi*dados$Mês/12)
 dados$mes_cos <- cos(2*pi*dados$Mês/12)
 
+str(dados)
+
 #------------------------------------------------------------------------------#
 # 4. Modelo aditivo
 #------------------------------------------------------------------------------#
 
 m_nb_aditivo <- glmmTMB(
-  abundancia ~ especie + mes_sin + mes_cos + turno + revis +
+  abundancia ~ especie + mes_sin + mes_cos + turno + revis + ano +
     (1 | voo),
   data = dados,
   family = nbinom2
@@ -58,6 +60,7 @@ m_nb_interacao <- glmmTMB(
     revis * turno +
     especie * (mes_sin + mes_cos) +
     especie * turno +
+    revis * ano +
     (1 | voo),
   data = dados,
   family = nbinom2
@@ -208,6 +211,8 @@ pairs(
   adjust = "bonferroni"
 )
 
+#------------------------------------------------------------------------------#
+
 # 10.5. Médias marginais para gráficos de sazonalidade
 
 novo <- expand.grid(
@@ -219,76 +224,6 @@ novo <- expand.grid(
 
 novo$mes_sin <- sin(2*pi*novo$Mês/12)
 novo$mes_cos <- cos(2*pi*novo$Mês/12)
-
-pred <- predict(
-  m_nb_interacao,
-  newdata = novo,
-  type = "response",
-  se.fit = TRUE,
-  re.form = NA
-)
-
-novo$pred <- pred$fit
-novo$se <- pred$se.fit
-
-novo$IC_inf <- exp(log(novo$pred) - 1.96*novo$se/novo$pred)
-novo$IC_sup <- exp(log(novo$pred) + 1.96*novo$se/novo$pred)
-
-head(novo)
-
-ggplot(novo,
-       aes(x = Mês,
-           y = pred,
-           color = especie)) +
-  geom_line(linewidth = 1.2) +
-  geom_point(size = 2) +
-  facet_wrap(~ revis) +
-  theme_bw() +
-  labs(
-    x = "Mês",
-    y = "Abundância prevista",
-    color = "Espécie"
-  )
-
-novo$grupo <- interaction(novo$revis,
-                          novo$especie,
-                          sep = " - ")
-
-ggplot(novo,
-       aes(Mês,
-           pred,
-           color = grupo)) +
-  geom_line(linewidth = 1.2) +
-  geom_point() +
-  theme_bw() +
-  labs(
-    x = "Mês",
-    y = "Abundância prevista",
-    color = "Grupo"
-  )
-
-
-
-
-# Grade de predição
-novo <- expand.grid(
-  Mês = 1:12,
-  especie = levels(dados$especie),
-  revis = levels(dados$revis),
-  turno = "Diurno"
-)
-
-novo$mes_sin <- sin(2*pi*novo$Mês/12)
-novo$mes_cos <- cos(2*pi*novo$Mês/12)
-
-# Predições na escala do link
-pred <- predict(
-  m_nb_interacao,
-  newdata = novo,
-  type = "link",
-  se.fit = TRUE,
-  re.form = NA
-)
 
 novo$eta <- pred$fit
 novo$SE_eta <- pred$se.fit
@@ -303,9 +238,6 @@ novo$IC_inf <- exp(novo$eta_LCL)
 novo$IC_sup <- exp(novo$eta_UCL)
 
 head(novo)
-
-
-
 
 # Renomear áreas para a figura
 novo$revis_label <- factor(
@@ -375,15 +307,15 @@ ggplot(
     fill = "Species"
   ) +
   
-  theme_classic(base_size = 16) +
+  theme_classic(base_size = 14) +
   
   theme(
-    axis.title = element_text(size = 18),
-    axis.text = element_text(size = 14),
-    legend.title = element_text(size = 16),
-    legend.text = element_text(size = 14),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
     strip.text = element_text(
-      size = 16,
+      size = 14,
       face = "bold"
     ),
     legend.position = "right"
@@ -395,3 +327,4 @@ ggsave(
   height = 6,
   dpi = 600
 )
+
